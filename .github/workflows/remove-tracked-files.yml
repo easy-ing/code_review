@@ -1,0 +1,42 @@
+name: Remove tracked OS files
+
+on:
+  workflow_dispatch:
+
+jobs:
+  remove-tracked-files:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Find tracked .DS_Store and .Rhistory files
+        run: |
+          git ls-files | grep -E '\.DS_Store$|\.Rhistory$' > tracked_files.txt || true
+          if [ -s tracked_files.txt ]; then
+            echo "Tracked files found:" && cat tracked_files.txt
+          else
+            echo "No tracked .DS_Store or .Rhistory files found."
+          fi
+
+      - name: Remove tracked files from index, commit and push
+        run: |
+          if [ -s tracked_files.txt ]; then
+            echo "Removing tracked files from index..."
+            xargs -a tracked_files.txt -r git rm --cached
+            git add .gitignore || true
+            git commit -m "chore: remove tracked .DS_Store and .Rhistory, apply .gitignore" || echo "No changes to commit"
+            git push
+          else
+            echo "Nothing to remove."
+          fi
