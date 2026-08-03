@@ -1,5 +1,9 @@
 name: Python Tests
 
+permissions:
+  contents: read
+  issues: write
+
 on:
   push:
     branches: [ main ]
@@ -58,7 +62,10 @@ jobs:
     name: Post PR test summary
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      issues: write
+      contents: read
     steps:
       - name: Post PR test results summary
         uses: actions/github-script@v6
