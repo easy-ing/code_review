@@ -71,18 +71,12 @@ jobs:
             const run = await github.rest.actions.getWorkflowRun({ owner, repo, run_id })
             const jobs = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id })
 
-            let body = `### Automated test summary\n\n`
-            body += `Workflow: [${run.data.name}](${run.data.html_url})\n\n`
+            const total = jobs.data.jobs.length
+            const failed = jobs.data.jobs.filter(j => j.conclusion !== 'success').length
+            const overall = failed > 0 ? 'failed' : 'success'
+            const passed = total - failed
 
-            const jobLines = jobs.data.jobs.map(j => {
-              const conclusion = j.conclusion ? j.conclusion : j.status
-              const jobUrl = `${run.data.html_url}#step:job-${j.id}`
-              return `- **${j.name}** on *${j.runner_name}* — ${conclusion} ([logs](${jobUrl}))`
-            })
-
-            body += jobLines.join('\n') + '\n\n'
-            body += `Artifacts and detailed logs are available on the [workflow run page](${run.data.html_url}).` + '\n\n'
-            body += 'If any job failed, click the logs link to see the failing step and attached artifacts.'
+            const body = `Automated test summary — Overall: ${overall} (${passed}/${total}) — Workflow: [${run.data.name}](${run.data.html_url})`
 
             if (context.payload.pull_request && context.payload.pull_request.number) {
               await github.rest.issues.createComment({ owner, repo, issue_number: context.payload.pull_request.number, body })
