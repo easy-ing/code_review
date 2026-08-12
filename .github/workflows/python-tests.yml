@@ -93,7 +93,7 @@ jobs:
               core.info('No pull_request context available; skipping comment.')
             }
 
-      - name: Post PR test results summary (forked PR - use PAT, limited info)
+      - name: Post PR test results summary (forked PR - use PAT, link only)
         if: github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/github-script@v6
         with:
@@ -104,15 +104,9 @@ jobs:
             const repo = context.repo.repo
 
             const run = await github.rest.actions.getWorkflowRun({ owner, repo, run_id })
-            const jobs = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id })
 
-            const total = jobs.data.jobs.length
-            const failed = jobs.data.jobs.filter(j => j.conclusion !== 'success').length
-            const overall = failed > 0 ? 'failed' : 'success'
-            const passed = total - failed
-
-            // Limited comment for security when posting from a PAT for a forked PR
-            const body = `Automated test summary — Overall: ${overall} (${passed}/${total}) — Workflow: [${run.data.name}](${run.data.html_url})\n\n⚠️ Note: This comment was posted by a bot using a repository secret to support forked PRs. Details are intentionally limited for security. For full logs and artifacts, open the workflow run page.`
+            // Link-only comment for forked PRs
+            const body = `Automated test summary — Workflow: [${run.data.name}](${run.data.html_url})`
 
             if (context.payload.pull_request && context.payload.pull_request.number) {
               await github.rest.issues.createComment({ owner, repo, issue_number: context.payload.pull_request.number, body })
