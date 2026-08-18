@@ -93,23 +93,19 @@ jobs:
               core.info('No pull_request context available; skipping comment.')
             }
 
-      - name: Post PR test results summary (forked PR - use PAT, link only)
+      - name: Add label to forked PR (use PAT)
         if: github.event.pull_request.head.repo.full_name != github.repository
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.COMMENTER_PAT }}
           script: |
-            const run_id = parseInt(process.env.GITHUB_RUN_ID)
             const owner = context.repo.owner
             const repo = context.repo.repo
+            const pr_number = context.payload.pull_request.number
+            const label = 'ci/tested'
 
-            const run = await github.rest.actions.getWorkflowRun({ owner, repo, run_id })
-
-            // Link-only comment for forked PRs
-            const body = `Automated test summary — Workflow: [${run.data.name}](${run.data.html_url})`
-
-            if (context.payload.pull_request && context.payload.pull_request.number) {
-              await github.rest.issues.createComment({ owner, repo, issue_number: context.payload.pull_request.number, body })
-            } else {
-              core.info('No pull_request context available; skipping comment.')
+            try {
+              await github.rest.issues.addLabels({ owner, repo, issue_number: pr_number, labels: [label] })
+            } catch (err) {
+              core.info(`Failed to add label: ${err}`)
             }
