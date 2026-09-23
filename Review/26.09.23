@@ -1,0 +1,391 @@
+# [프로그래머스] 광물 캐기 - 코드 리뷰
+
+## 1. 문제 유형
+
+- 그리디(Greedy)
+- 정렬
+- 구현
+
+---
+
+## 2. 핵심 풀이
+
+이 문제의 핵심은 광물을 **5개씩 하나의 작업 단위로 묶은 뒤**, 어떤 작업 단위에 좋은 곡괭이를 먼저 사용할지 결정하는 것이다.
+
+곡괭이의 우선순위는 다음과 같다.
+
+```text
+다이아몬드 곡괭이 → 철 곡괭이 → 돌 곡괭이
+```
+
+그리고 광물 그룹은 다음 기준으로 정렬한다.
+
+```text
+다이아몬드 개수 ↓
+철 개수 ↓
+돌 개수 ↓
+```
+
+다이아몬드가 많이 포함된 그룹일수록 좋은 곡괭이를 사용했을 때 피로도 감소 효과가 크기 때문이다.
+
+---
+
+## 3. 내가 처음 작성한 코드와 정답 코드의 차이
+
+### 차이점 1. 실제로 캘 수 있는 광물만 먼저 제한
+
+정답 코드에서는 다음 처리가 먼저 들어간다.
+
+```python
+total_picks = sum(picks)
+num_min = total_picks * 5
+
+if len(minerals) > num_min:
+    minerals = minerals[:num_min]
+```
+
+곡괭이 하나는 최대 5개의 광물만 캘 수 있다.
+
+따라서 보유한 곡괭이가 3개라면 최대:
+
+```text
+3 × 5 = 15개
+```
+
+까지만 캘 수 있다.
+
+예를 들어:
+
+```python
+picks = [1, 0, 0]
+minerals = [... 20개 ...]
+```
+
+라면 실제로 캘 수 있는 광물은 5개뿐이다.
+
+### 내가 작성한 코드
+
+나는 전체 `minerals`를 기준으로 그룹을 만들었다.
+
+```python
+for i in range(0, len(minerals), 5):
+    group = minerals[i:i + 5]
+```
+
+이후 곡괭이가 모두 소진되면 `break`하도록 작성했기 때문에 일반적인 결과값에는 영향을 주지 않을 수 있다.
+
+하지만 문제에서 실제로 캘 수 있는 범위만 먼저 잘라내는 정답 코드의 방식이 더 명확하다.
+
+즉,
+
+> **보유한 곡괭이로 캘 수 있는 최대 광물 수를 먼저 계산하고, 그 범위까지만 문제를 풀어야 한다.**
+
+---
+
+## 4. 차이점 2. 그룹을 만드는 방법
+
+정답 코드에서는 10개의 그룹을 미리 만든다.
+
+```python
+cnt_min = [[0, 0, 0] for _ in range(10)]
+```
+
+그리고 `i // 5`를 이용해서 어느 그룹인지 판단한다.
+
+```python
+if minerals[i] == 'diamond':
+    cnt_min[i // 5][0] += 1
+elif minerals[i] == 'iron':
+    cnt_min[i // 5][1] += 1
+else:
+    cnt_min[i // 5][2] += 1
+```
+
+예를 들어:
+
+```text
+i = 0 ~ 4   → 0번째 그룹
+i = 5 ~ 9   → 1번째 그룹
+i = 10 ~ 14 → 2번째 그룹
+```
+
+나는 다음처럼 5개씩 직접 잘랐다.
+
+```python
+for i in range(0, len(minerals), 5):
+    group = minerals[i:i + 5]
+```
+
+두 방법 모두 같은 그룹을 만든다.
+
+### 차이점
+
+정답 코드:
+
+```python
+i // 5
+```
+
+- 인덱스로 그룹을 직접 관리
+- 최대 10개 그룹을 미리 생성
+
+내 코드:
+
+```python
+minerals[i:i + 5]
+```
+
+- 실제 존재하는 광물만 그룹으로 생성
+- 빈 그룹이 만들어지지 않음
+
+개인적으로는 슬라이싱 방식이 그룹 단위가 눈에 바로 보여서 읽기 쉽다.
+
+---
+
+## 5. 차이점 3. 빈 그룹 처리
+
+정답 코드의:
+
+```python
+cnt_min = [[0, 0, 0] for _ in range(10)]
+```
+
+은 항상 10개의 그룹을 만든다.
+
+예를 들어 광물이 8개라면 실제 그룹은 2개뿐이지만:
+
+```text
+[실제 그룹]
+[실제 그룹]
+[빈 그룹]
+[빈 그룹]
+...
+```
+
+형태가 된다.
+
+다만 빈 그룹의 피로도는 0이므로 결과값에는 영향을 주지 않는다.
+
+내 코드는:
+
+```python
+for i in range(0, len(minerals), 5):
+```
+
+로 실제 광물이 존재하는 만큼만 그룹을 생성하기 때문에 빈 그룹이 생기지 않는다.
+
+---
+
+## 6. 차이점 4. 그룹 정렬 기준
+
+정답 코드:
+
+```python
+sorted_cnt_min = sorted(
+    cnt_min,
+    key=lambda x: (-x[0], -x[1], -x[2])
+)
+```
+
+나는:
+
+```python
+groups.sort(reverse=True)
+```
+
+를 사용했다.
+
+두 코드 모두 결과적으로:
+
+```text
+다이아몬드 개수 ↓
+철 개수 ↓
+돌 개수 ↓
+```
+
+순으로 정렬한다.
+
+예를 들어:
+
+```text
+[2, 1, 2]
+[2, 3, 0]
+[1, 5, 0]
+```
+
+이면:
+
+```text
+[2, 3, 0]
+[2, 1, 2]
+[1, 5, 0]
+```
+
+순서가 된다.
+
+---
+
+## 7. 차이점 5. 곡괭이 선택 방식
+
+정답 코드는 반복문을 이용한다.
+
+```python
+for p in range(len(picks)):
+    if p == 0 and picks[p] > 0:
+        ...
+        break
+    elif p == 1 and picks[p] > 0:
+        ...
+        break
+    elif p == 2 and picks[p] > 0:
+        ...
+        break
+```
+
+나는 조건문으로 직접 선택했다.
+
+```python
+if picks[0] > 0:
+    pick = 0
+elif picks[1] > 0:
+    pick = 1
+else:
+    pick = 2
+```
+
+논리는 동일하다.
+
+둘 다:
+
+```text
+다이아 → 철 → 돌
+```
+
+순서로 사용할 수 있는 가장 좋은 곡괭이를 선택한다.
+
+다만 `else`에서 무조건 돌 곡괭이를 선택하는 형태는 곡괭이가 모두 없는 상황까지 고려하면 안전하지 않다.
+
+따라서 다음과 같이 작성하는 것이 명확하다.
+
+```python
+if picks[0] > 0:
+    pick = 0
+elif picks[1] > 0:
+    pick = 1
+elif picks[2] > 0:
+    pick = 2
+else:
+    break
+```
+
+---
+
+## 8. 피로도 계산은 동일
+
+정답 코드의 피로도 계산은 다음과 같다.
+
+### 다이아몬드 곡괭이
+
+```python
+answer += d + i + s
+```
+
+### 철 곡괭이
+
+```python
+answer += 5 * d + i + s
+```
+
+### 돌 곡괭이
+
+```python
+answer += 25 * d + 5 * i + s
+```
+
+내 코드도 동일한 계산을 사용했다.
+
+---
+
+## 9. 최종적으로 정리하면
+
+내 코드와 정답 코드의 **그리디 핵심 전략은 동일하다.**
+
+```text
+1. 광물을 5개씩 그룹화
+        ↓
+2. 그룹별 diamond / iron / stone 개수 계산
+        ↓
+3. 다이아 → 철 → 돌 순으로 그룹 정렬
+        ↓
+4. 좋은 곡괭이부터 사용
+        ↓
+5. 피로도 계산
+```
+
+가장 중요한 차이는 **처음에 캘 수 있는 광물의 개수를 제한하는 전처리**다.
+
+```python
+max_minerals = sum(picks) * 5
+minerals = minerals[:max_minerals]
+```
+
+이 부분을 통해:
+
+> **곡괭이가 부족해서 어차피 캘 수 없는 광물은 처음부터 문제에서 제외한다.**
+
+---
+
+## 10. 개선한 최종 코드
+
+정답 코드의 핵심을 유지하면서 불필요한 빈 그룹을 만들지 않도록 정리하면 다음과 같이 작성할 수 있다.
+
+```python
+def solution(picks, minerals):
+    # 실제로 캘 수 있는 광물의 최대 개수
+    max_minerals = sum(picks) * 5
+    minerals = minerals[:max_minerals]
+
+    groups = []
+
+    # 광물을 5개씩 그룹화
+    for i in range(0, len(minerals), 5):
+        group = minerals[i:i + 5]
+
+        diamond = group.count("diamond")
+        iron = group.count("iron")
+        stone = group.count("stone")
+
+        groups.append([diamond, iron, stone])
+
+    # 다이아몬드 → 철 → 돌 개수가 많은 그룹부터
+    groups.sort(key=lambda x: (-x[0], -x[1], -x[2]))
+
+    answer = 0
+
+    for diamond, iron, stone in groups:
+        # 다이아몬드 곡괭이
+        if picks[0] > 0:
+            answer += diamond + iron + stone
+            picks[0] -= 1
+
+        # 철 곡괭이
+        elif picks[1] > 0:
+            answer += 5 * diamond + iron + stone
+            picks[1] -= 1
+
+        # 돌 곡괭이
+        elif picks[2] > 0:
+            answer += 25 * diamond + 5 * iron + stone
+            picks[2] -= 1
+
+        else:
+            break
+
+    return answer
+```
+
+---
+
+## 11. 코드 리뷰 한 줄 총평
+
+> **기존 풀이의 그리디 전략 자체는 맞았지만, `sum(picks) * 5`를 이용해 실제 채굴 가능한 광물만 먼저 제한하는 전처리가 빠져 있었다. 이후에는 광물을 5개씩 그룹화하고, 다이아몬드·철·돌 개수를 기준으로 정렬하여 좋은 곡괭이를 우선 배정하면 된다.**
