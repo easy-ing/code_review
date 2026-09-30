@@ -1,0 +1,714 @@
+# 과제 진행하기 - 코드 리뷰
+
+## 1. 문제 유형
+
+- **정렬**
+- **스택(Stack)**
+- **시뮬레이션**
+
+이 문제의 핵심은 과제가 중단될 때 **가장 최근에 중단된 과제부터 다시 시작한다**는 점입니다.
+
+따라서 중단된 과제를 `stack`에 저장하면 자연스럽게 문제의 조건을 구현할 수 있습니다.
+
+---
+
+## 2. 핵심 아이디어
+
+### ① 시작 시간을 분으로 변환
+
+`"12:40"` 같은 문자열을 계산하기 쉽게 분 단위 숫자로 바꿉니다.
+
+```python
+hour, minute = map(int, start.split(":"))
+start_time = hour * 60 + minute
+```
+
+예를 들어:
+
+```text
+12:40 → 12 * 60 + 40 → 760
+```
+
+이렇게 하면 두 과제 사이의 시간 차이를 쉽게 계산할 수 있습니다.
+
+---
+
+### ② 시작 시간이 빠른 순서로 정렬
+
+`plans`가 시간순으로 정렬되어 있다는 보장이 없습니다.
+
+따라서 먼저 시작 시간 기준으로 정렬합니다.
+
+```python
+new_plans.sort(key=lambda x: x[1])
+```
+
+정렬 후에는 항상 다음 과제의 시작 시간을 알 수 있습니다.
+
+---
+
+### ③ 다음 과제 시작 전까지 현재 과제를 끝낼 수 있는지 확인
+
+현재 과제의 시작 시간을 `start`, 소요 시간을 `playtime`이라고 하면,
+
+```text
+다음 과제 시작까지 사용할 수 있는 시간
+= next_start - start
+```
+
+입니다.
+
+#### 현재 과제를 끝낼 수 있는 경우
+
+```python
+if playtime <= available:
+```
+
+현재 과제를 끝내고 남는 시간이 있다면, 그 시간 동안 중단된 과제를 처리할 수 있습니다.
+
+#### 현재 과제를 끝낼 수 없는 경우
+
+```python
+else:
+    stack.append([
+        name,
+        playtime - available
+    ])
+```
+
+현재 과제를 중단하고 남은 시간을 스택에 저장합니다.
+
+---
+
+## 4. 왜 스택을 사용하는가?
+
+문제에서 다음 조건이 있습니다.
+
+> 멈춰둔 과제가 여러 개일 경우, 가장 최근에 멈춘 과제부터 시작합니다.
+
+이것은 전형적인 **LIFO(Last In, First Out)** 구조입니다.
+
+예를 들어:
+
+```text
+music 중단
+computer 중단
+science 완료
+```
+
+라면 중단된 과제는
+
+```text
+music
+computer ← 가장 최근
+```
+
+이고, `computer`부터 다시 시작해야 합니다.
+
+따라서:
+
+```python
+stack.append(["music", 30])
+stack.append(["computer", 90])
+
+name, remain = stack.pop()
+```
+
+하면 `computer`가 먼저 나옵니다.
+
+---
+
+## 5. 정답 코드
+
+```python
+def solution(plans):
+    answer = []
+
+    # 1. 시작 시간을 분으로 변환
+    new_plans = []
+
+    for name, start, playtime in plans:
+        hour, minute = map(int, start.split(":"))
+        start_time = hour * 60 + minute
+
+        new_plans.append([
+            name,
+            start_time,
+            int(playtime)
+        ])
+
+    # 2. 시작 시간순으로 정렬
+    new_plans.sort(key=lambda x: x[1])
+
+    # 멈춘 과제 저장
+    # [과제 이름, 남은 시간]
+    stack = []
+
+    # 3. 과제 진행
+    for i in range(len(new_plans) - 1):
+        name, start, playtime = new_plans[i]
+
+        next_start = new_plans[i + 1][1]
+
+        # 다음 과제가 시작할 때까지 사용할 수 있는 시간
+        available = next_start - start
+
+        if playtime <= available:
+            # 현재 과제를 끝낼 수 있음
+            answer.append(name)
+
+            # 과제를 끝내고 남는 시간
+            remain_time = available - playtime
+
+            # 남는 시간 동안 멈춘 과제 처리
+            while stack and remain_time > 0:
+                prev_name, prev_time = stack.pop()
+
+                if prev_time <= remain_time:
+                    # 멈춘 과제를 끝냄
+                    answer.append(prev_name)
+                    remain_time -= prev_time
+                else:
+                    # 아직 다 못 끝냄
+                    stack.append([
+                        prev_name,
+                        prev_time - remain_time
+                    ])
+                    remain_time = 0
+
+        else:
+            # 다음 과제가 시작되기 전에 현재 과제를 못 끝냄
+            # 남은 시간만 저장
+            stack.append([
+                name,
+                playtime - available
+            ])
+
+    # 4. 마지막 과제는 무조건 시작해서 끝냄
+    last_name, _, _ = new_plans[-1]
+    answer.append(last_name)
+
+    # 5. 남은 과제는 가장 최근에 멈춘 것부터 끝냄
+    while stack:
+        name, _ = stack.pop()
+        answer.append(name)
+
+    return answer
+```
+
+---
+
+## 6. 코드 한 줄씩 리뷰
+
+### 시작 시간 변환
+
+```python
+for name, start, playtime in plans:
+```
+
+각 과제에서 이름, 시작 시간, 소요 시간을 꺼냅니다.
+
+```python
+hour, minute = map(int, start.split(":"))
+```
+
+`"12:40"`을 `12`, `40`으로 나눕니다.
+
+```python
+start_time = hour * 60 + minute
+```
+
+시간을 전부 분으로 바꿉니다.
+
+예:
+
+```text
+12:40
+= 12 × 60 + 40
+= 760분
+```
+
+문자열끼리 시간을 비교하는 것보다 숫자로 바꾸는 것이 계산하기 편합니다.
+
+---
+
+### 시작 시간 정렬
+
+```python
+new_plans.sort(key=lambda x: x[1])
+```
+
+`x[1]`은 시작 시간입니다.
+
+따라서:
+
+```text
+music     12:20
+computer  12:30
+science   12:40
+history   14:00
+```
+
+순서로 정렬됩니다.
+
+---
+
+### 스택
+
+```python
+stack = []
+```
+
+중단된 과제를 저장합니다.
+
+저장 형태는:
+
+```text
+[과제 이름, 남은 시간]
+```
+
+입니다.
+
+예:
+
+```python
+stack = [
+    ["music", 30],
+    ["computer", 90]
+]
+```
+
+---
+
+### 다음 과제 시작 시간 확인
+
+```python
+next_start = new_plans[i + 1][1]
+```
+
+현재 과제 다음에 시작할 과제의 시간을 가져옵니다.
+
+```python
+available = next_start - start
+```
+
+현재 과제가 다음 과제가 시작하기 전까지 사용할 수 있는 시간을 계산합니다.
+
+---
+
+## 7. 현재 과제를 끝낼 수 있는 경우
+
+```python
+if playtime <= available:
+```
+
+현재 과제의 소요 시간이 남은 시간보다 작거나 같다면 현재 과제를 완료할 수 있습니다.
+
+```python
+answer.append(name)
+```
+
+완료 순서에 현재 과제를 추가합니다.
+
+그리고:
+
+```python
+remain_time = available - playtime
+```
+
+과제를 끝내고 남은 시간을 계산합니다.
+
+---
+
+### 남은 시간으로 중단된 과제 처리
+
+```python
+while stack and remain_time > 0:
+```
+
+중단된 과제가 있고, 아직 사용할 시간이 남아 있다면 중단된 과제를 이어서 합니다.
+
+```python
+prev_name, prev_time = stack.pop()
+```
+
+가장 최근에 중단된 과제를 가져옵니다.
+
+여기서 `pop()`이 핵심입니다.
+
+```text
+stack = [
+    music,
+    computer
+]
+
+pop()
+→ computer
+```
+
+문제의 조건과 정확하게 일치합니다.
+
+---
+
+### 중단된 과제를 완전히 끝낼 수 있는 경우
+
+```python
+if prev_time <= remain_time:
+```
+
+남아 있는 시간 안에 과제를 끝낼 수 있다면:
+
+```python
+answer.append(prev_name)
+```
+
+완료 순서에 추가합니다.
+
+그리고 사용한 시간만큼:
+
+```python
+remain_time -= prev_time
+```
+
+차감합니다.
+
+---
+
+### 중단된 과제를 끝내지 못하는 경우
+
+```python
+else:
+    stack.append([
+        prev_name,
+        prev_time - remain_time
+    ])
+```
+
+남은 시간으로 과제를 끝내지 못했다면 다시 스택에 넣습니다.
+
+예를 들어:
+
+```text
+computer 남은 시간 = 90분
+사용 가능한 시간 = 30분
+```
+
+이라면:
+
+```text
+computer 남은 시간 = 60분
+```
+
+으로 다시 저장합니다.
+
+```python
+stack.append(["computer", 60])
+```
+
+그리고 더 이상 사용할 시간이 없으므로:
+
+```python
+remain_time = 0
+```
+
+으로 만듭니다.
+
+---
+
+## 8. 현재 과제를 끝내지 못하는 경우
+
+```python
+else:
+    stack.append([
+        name,
+        playtime - available
+    ])
+```
+
+다음 과제가 시작하기 전에 현재 과제를 끝내지 못했다는 뜻입니다.
+
+예를 들어:
+
+```text
+현재 과제: 100분
+다음 과제까지: 10분
+```
+
+이면 10분만 진행하고:
+
+```text
+남은 시간 = 90분
+```
+
+입니다.
+
+따라서:
+
+```python
+stack.append(["computer", 90])
+```
+
+처럼 저장합니다.
+
+그리고 다음 과제가 시작하면 새로운 과제가 현재 과제를 중단시킵니다.
+
+---
+
+## 9. 마지막 과제 처리
+
+반복문은 마지막 과제 직전까지만 처리합니다.
+
+```python
+for i in range(len(new_plans) - 1):
+```
+
+마지막 과제는 이후에 새로운 과제가 없기 때문에 무조건 끝까지 진행할 수 있습니다.
+
+```python
+last_name, _, _ = new_plans[-1]
+answer.append(last_name)
+```
+
+---
+
+## 10. 마지막으로 남은 과제 처리
+
+마지막 과제가 끝났는데도 중단된 과제가 남아 있을 수 있습니다.
+
+이 과제들은 새로운 과제가 없기 때문에 스택에서 하나씩 꺼내면서 완료하면 됩니다.
+
+```python
+while stack:
+    name, _ = stack.pop()
+    answer.append(name)
+```
+
+여기에서도 `pop()`을 사용하기 때문에 가장 최근에 중단된 과제부터 완료됩니다.
+
+---
+
+## 11. 예제 2로 직접 확인
+
+입력:
+
+```text
+science  12:40  50
+music    12:20  40
+history  14:00  30
+computer 12:30 100
+```
+
+시간순으로 정렬하면:
+
+```text
+12:20 music
+12:30 computer
+12:40 science
+14:00 history
+```
+
+### 12:20 music
+
+다음 과제는 12:30입니다.
+
+```text
+사용 가능 시간 = 10분
+music = 40분
+```
+
+끝내지 못합니다.
+
+```text
+stack = [music 30분]
+```
+
+---
+
+### 12:30 computer
+
+다음 과제는 12:40입니다.
+
+```text
+사용 가능 시간 = 10분
+computer = 100분
+```
+
+끝내지 못합니다.
+
+```text
+stack = [
+    music 30분,
+    computer 90분
+]
+```
+
+---
+
+### 12:40 science
+
+다음 과제는 14:00입니다.
+
+```text
+사용 가능 시간 = 80분
+science = 50분
+```
+
+science를 끝냅니다.
+
+```text
+answer = [science]
+```
+
+30분이 남습니다.
+
+스택에서 가장 최근 과제를 꺼냅니다.
+
+```text
+computer 90분
+```
+
+30분 동안 진행하면:
+
+```text
+computer 60분
+```
+
+이 다시 스택에 들어갑니다.
+
+```text
+stack = [
+    music 30분,
+    computer 60분
+]
+```
+
+---
+
+### 14:00 history
+
+history는 30분이므로:
+
+```text
+14:00 → 14:30
+```
+
+완료합니다.
+
+```text
+answer = [
+    science,
+    history
+]
+```
+
+그 후 가장 최근 과제인 computer를 다시 시작합니다.
+
+computer를 60분 진행하면 완료됩니다.
+
+```text
+answer = [
+    science,
+    history,
+    computer
+]
+```
+
+마지막으로 music을 완료합니다.
+
+```text
+answer = [
+    science,
+    history,
+    computer,
+    music
+]
+```
+
+정답과 일치합니다.
+
+---
+
+## 12. 주의할 점
+
+### `end < next_start`가 아니라 `<=`
+
+문제에서 다음 조건이 있습니다.
+
+> 진행 중이던 과제가 끝나는 시각과 새로운 과제를 시작해야 되는 시각이 같은 경우 진행 중이던 과제는 끝난 것으로 판단합니다.
+
+따라서:
+
+```python
+if playtime <= available:
+```
+
+이어야 합니다.
+
+`<`를 사용하면 같은 시간에 끝나는 과제를 중단시키는 잘못된 결과가 나옵니다.
+
+---
+
+## 13. 시간 복잡도
+
+과제 개수를 `N`이라고 하면:
+
+### 정렬
+
+```text
+O(N log N)
+```
+
+### 과제 처리
+
+각 과제는 스택에 들어갔다가 나옵니다.
+
+```text
+O(N)
+```
+
+따라서 전체 시간 복잡도는:
+
+```text
+O(N log N)
+```
+
+공간 복잡도는 정렬된 과제 배열과 스택 때문에:
+
+```text
+O(N)
+```
+
+입니다.
+
+---
+
+## 14. 총평
+
+이 문제에서 가장 중요한 포인트는 **'가장 최근에 멈춘 과제부터 다시 한다' → Stack**이라는 연결입니다.
+
+문제의 조건을 그대로 자료구조에 대응시키면 어렵지 않습니다.
+
+```text
+시간순으로 처리
+      ↓
+다음 과제 시작 전까지 현재 과제를 끝낼 수 있는가?
+      ↓
+   ┌───────┴───────┐
+   ↓               ↓
+  가능             불가능
+   ↓               ↓
+완료 처리       남은 시간 저장
+   ↓               ↓
+남는 시간으로   Stack에 push
+중단 과제 처리
+   ↓
+Stack.pop()
+   ↓
+가장 최근에 중단된 과제부터 처리
+```
+
+특히 코딩테스트에서 다음 표현이 나오면 스택을 먼저 의심하면 좋습니다.
+
+> **"가장 최근에 ~한 것부터"**
+
+이 문제에서는 그 조건이 그대로 **LIFO = Stack**으로 연결됩니다.
