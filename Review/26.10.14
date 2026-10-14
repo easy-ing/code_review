@@ -1,0 +1,191 @@
+# 순위 검색 — 코드 리뷰
+
+## 1. 문제 유형
+
+- **해시(Hash)**
+- **조합(Combination)**
+- **정렬(Sorting)**
+- **이분 탐색(Binary Search)**
+
+지원자 정보를 조건별로 미리 분류해 두고, 각 문의에 대해 점수 기준을 만족하는 지원자 수를 빠르게 찾는 문제입니다.
+
+## 2. 핵심 아이디어
+
+문의마다 모든 지원자를 검사하면 `info`와 `query`의 크기가 클 때 시간 초과가 발생할 수 있습니다.
+
+따라서 다음과 같이 처리합니다.
+
+1. 각 지원자에 대해 조건 4개 중 일부를 `-`로 바꾼 모든 경우를 생성합니다.
+2. 각 조건 조합을 딕셔너리의 키로 사용하고, 해당 조건에 맞는 지원자의 점수를 저장합니다.
+3. 조건별 점수 목록을 오름차순으로 정렬합니다.
+4. 각 문의에서 조건에 해당하는 점수 목록을 찾고, 이분 탐색으로 기준 점수 이상인 지원자의 수를 계산합니다.
+
+조건 4개 각각은 실제 값 또는 `-`가 될 수 있으므로, 지원자 한 명당 생성할 조합은 다음과 같습니다.
+
+- 조건을 바꾸지 않는 경우: 1개
+- 조건 하나를 `-`로 바꾸는 경우: 4개
+- 조건 두 개를 `-`로 바꾸는 경우: 6개
+- 조건 세 개를 `-`로 바꾸는 경우: 4개
+- 조건 네 개를 모두 `-`로 바꾸는 경우: 1개
+
+총 **16개 조합**을 저장합니다.
+
+## 3. 코드
+
+```python
+from itertools import combinations
+from collections import defaultdict
+from bisect import bisect_left
+
+def solution(info, query):
+    applicants = defaultdict(list)
+    answer = []
+
+    for person in info:
+        data = person.split()
+        score = int(data[-1])
+        conditions = data[:-1]
+
+        for count in range(5):
+            for combo in combinations(range(4), count):
+                key = conditions[:]
+                for i in combo:
+                    key[i] = '-'
+                applicants[tuple(key)].append(score)
+
+    for scores in applicants.values():
+        scores.sort()
+
+    for q in query:
+        data = q.replace(' and ', ' ').split()
+        conditions = tuple(data[:4])
+        score = int(data[4])
+
+        scores = applicants[conditions]
+        idx = bisect_left(scores, score)
+        answer.append(len(scores) - idx)
+
+    return answer
+```
+
+## 4. 코드 리뷰
+
+### 4-1. 조건 조합을 미리 생성한다
+
+```python
+for count in range(5):
+    for combo in combinations(range(4), count):
+        key = conditions[:]
+        for i in combo:
+            key[i] = '-'
+        applicants[tuple(key)].append(score)
+```
+
+`combinations(range(4), count)`는 네 가지 조건 중 `count`개를 고르는 모든 조합을 만듭니다.
+
+선택된 위치의 조건을 `-`로 바꾸면, 특정 조건을 고려하지 않는 문의도 같은 딕셔너리에서 조회할 수 있습니다.
+
+예를 들어 지원자 조건이 다음과 같다면,
+
+```text
+java backend junior pizza
+```
+
+다음과 같은 키가 만들어집니다.
+
+```text
+(java, backend, junior, pizza)
+(-, backend, junior, pizza)
+(java, -, junior, pizza)
+(java, backend, -, pizza)
+(java, backend, junior, -)
+(-, -, -, -)
+```
+
+실제로는 이 외의 조합도 함께 생성됩니다. 이렇게 하면 문의마다 가능한 조건 조합을 다시 계산할 필요가 없습니다.
+
+**리뷰 포인트:** `conditions[:]`는 원본 조건 리스트를 복사합니다. 복사본을 수정하므로 다음 조합을 만들 때 원본 데이터가 훼손되지 않습니다. 리스트는 딕셔너리 키로 사용할 수 없으므로 `tuple(key)`로 변환합니다.
+
+### 4-2. 점수 목록을 정렬한다
+
+```python
+for scores in applicants.values():
+    scores.sort()
+```
+
+같은 조건 조합에 속한 점수들을 오름차순으로 정렬합니다.
+
+정렬은 이후 `bisect_left()`를 이용해 기준 점수 이상의 지원자 수를 빠르게 계산하기 위한 준비 단계입니다.
+
+### 4-3. 문의 문자열을 조건과 점수로 분리한다
+
+```python
+data = q.replace(' and ', ' ').split()
+conditions = tuple(data[:4])
+score = int(data[4])
+```
+
+문의의 `and`를 제거한 뒤 공백 기준으로 나누면, 앞의 네 항목은 조건이고 마지막 항목은 기준 점수입니다.
+
+예를 들어,
+
+```text
+java and backend and junior and pizza 100
+```
+
+은 다음과 같이 분리됩니다.
+
+```python
+conditions = ('java', 'backend', 'junior', 'pizza')
+score = 100
+```
+
+### 4-4. 이분 탐색으로 기준 점수 이상의 인원 수를 구한다
+
+```python
+scores = applicants[conditions]
+idx = bisect_left(scores, score)
+answer.append(len(scores) - idx)
+```
+
+`bisect_left(scores, score)`는 정렬된 점수 목록에서 `score`를 삽입할 수 있는 가장 왼쪽 위치를 반환합니다.
+
+그 위치부터 끝까지의 점수는 모두 기준 점수 이상입니다. 따라서 전체 길이에서 해당 위치를 빼면 정답이 됩니다.
+
+예를 들어 점수 목록이 다음과 같다고 가정하겠습니다.
+
+```python
+scores = [50, 80, 100, 150, 150, 210]
+score = 150
+```
+
+`bisect_left(scores, 150)`의 결과는 `3`입니다.
+
+```python
+len(scores) - idx
+# 6 - 3 = 3
+```
+
+150점 이상인 지원자는 총 3명입니다. 기준 점수와 같은 점수도 포함된다는 점이 중요합니다.
+
+## 5. 시간 복잡도
+
+`N = len(info)`, `Q = len(query)`라고 하겠습니다.
+
+- 조건 조합 생성: 지원자마다 16개 조합을 생성하므로 `O(16N)`, 즉 `O(N)`
+- 점수 정렬: 최악의 경우 `O(16N log(16N))`
+- 문의 처리: 문의마다 딕셔너리 조회와 이분 탐색을 수행하므로 `O(Q log N)`
+
+전체 시간 복잡도는 상수 항을 생략하면 **`O(N log N + Q log N)`**입니다.
+
+공간 복잡도는 지원자마다 최대 16개의 점수를 저장하므로 **`O(N)`**입니다. 여기서 16은 고정된 상수입니다.
+
+## 6. 총평
+
+이 풀이의 핵심은 **문의가 들어올 때마다 지원자를 검색하지 않고, 가능한 조건 조합을 미리 만들어 두는 것**입니다.
+
+- `defaultdict(list)`로 조건별 점수를 관리합니다.
+- `combinations()`로 `-` 조건이 포함된 모든 조합을 생성합니다.
+- 정렬과 `bisect_left()`를 활용해 기준 점수 이상의 인원 수를 빠르게 계산합니다.
+
+처음에는 지원자 한 명당 16개의 조건 조합을 만드는 과정이 낯설 수 있습니다. 하지만 조건이 네 개로 고정되어 있어 가능한 조합 수도 항상 16개입니다. 이 사전 처리 덕분에 많은 문의를 효율적으로 처리할 수 있습니다.
