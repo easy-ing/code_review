@@ -1,8 +1,13 @@
 .gitignore
 .DS_Store
+.Rhistory
 __pycache__/
 *.pyc
+.pytest_cache/
+.coverage
 .env
 venv/
+.venv/
 .idea/
 *.egg-info/
+*.log
